@@ -87,10 +87,10 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: yarn install
+          command: npm install
       - run:
           name: Build server
-          command: yarn build
+          command: npm build
       - run: mkdir -p /tmp/artifacts
       - run: bash ./build/create-prod-docker-compose.sh
       - run:
@@ -100,7 +100,6 @@ jobs:
             && rm -f docker-compose.yml \
             && mv docker-compose.prod.yml docker-compose.yml \
             && tar -cvzf /tmp/artifacts/artifact.tar.gz \
-            ./.yarn/releases/yarn-berry.cjs \
             ./assets \
             ./dist \
             ./docker-compose.yml \
