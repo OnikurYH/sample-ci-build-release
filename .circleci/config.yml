@@ -1,0 +1,124 @@
+version: 2.1
+
+executors:
+  docker-publisher:
+    environment:
+      IMAGE_NAME: cocoacaa/sample-ci-release-build
+    docker:
+      - image: circleci/buildpack-deps:stretch
+
+workflows:
+  version: 2
+  build-master:
+    jobs:
+      - build-docker:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - publish-docker-latest:
+          context:
+            - docker-hub
+          requires:
+            - build-docker
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - build:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - publish-github-release:
+          context:
+            - github
+          requires:
+            - build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+
+jobs:
+  build-docker:
+    executor: docker-publisher
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: Build Docker image
+          command: docker build --tag $IMAGE_NAME:latest .
+      - run:
+          name: Archive Docker image
+          command: docker save -o image.tar $IMAGE_NAME
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./image.tar
+  publish-docker-latest:
+    executor: docker-publisher
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: Load archived Docker image
+          command: docker load -i /tmp/workspace/image.tar
+      - run:
+          name: Publish Docker Image to Docker Hub
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            IMAGE_TAG=${CIRCLE_TAG}
+            docker tag $IMAGE_NAME:latest $IMAGE_NAME:$IMAGE_TAG
+            docker push $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$IMAGE_TAG
+  build:
+    working_directory: ~/build-dir
+    docker:
+      - image: circleci/node:14.15.0-buster
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: yarn install
+      - run:
+          name: Build server
+          command: yarn build
+      - run: mkdir -p /tmp/artifacts
+      - run: bash ./
+      - run:
+          name: Create archive
+          command: |
+            cd ~/build-dir \
+            && rm -f docker-compose.yml \
+            && mv docker-compose.prod.yml docker-compose.yml \
+            && tar -cvzf /tmp/artifacts/artifact.tar.gz \
+            ./.yarn/releases/yarn-berry.cjs \
+            ./assets \
+            ./dist \
+            ./docker-compose.yml \
+            ./package.json \
+            ./tsconfig.json
+      - persist_to_workspace:
+          root: /tmp/artifacts
+          paths:
+            - artifact.tar.gz
+
+  publish-github-release:
+    docker:
+      - image: cibuilds/github:0.10
+    steps:
+      - attach_workspace:
+          at: /tmp/artifacts
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            VERSION=${CIRCLE_TAG}
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} /tmp/artifacts/
