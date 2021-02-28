@@ -92,7 +92,7 @@ jobs:
           name: Build server
           command: yarn build
       - run: mkdir -p /tmp/artifacts
-      - run: bash ./
+      - run: bash ./build/create-prod-docker-compose.sh
       - run:
           name: Create archive
           command: |
