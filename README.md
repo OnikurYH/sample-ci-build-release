@@ -2,6 +2,8 @@
 
 A sample project build with CI
 
+https://cocoacaa.medium.com/how-to-use-ci-to-build-your-node-js-project-a2956ebfa4f6
+
 # Build
 
 ```bash
