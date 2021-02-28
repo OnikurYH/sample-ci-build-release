@@ -1,11 +1,19 @@
 version: 2.1
 
+environment: &environment
+    IMAGE_NAME: cocoacaa/sample-ci-release-build
+
 executors:
   docker-publisher:
     environment:
-      IMAGE_NAME: cocoacaa/sample-ci-release-build
+        << : *environment
     docker:
       - image: circleci/buildpack-deps:stretch
+  build-publisher:
+    environment:
+        << : *environment
+    docker:
+      - image: circleci/node:14.15.0-buster
 
 workflows:
   version: 2
@@ -80,9 +88,8 @@ jobs:
             docker push $IMAGE_NAME:latest
             docker push $IMAGE_NAME:$IMAGE_TAG
   build:
+    executor: build-publisher
     working_directory: ~/build-dir
-    docker:
-      - image: circleci/node:14.15.0-buster
     steps:
       - checkout
       - run:

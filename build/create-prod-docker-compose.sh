@@ -4,7 +4,7 @@ cat >> ./docker-compose.prod.yml  << EOF
 version: '3.8'
 services:
     server:
-        image: $IMAGE_NAME:$IMAGE_TAG
+        image: $IMAGE_NAME:$CIRCLE_TAG
         user: 'node'
         working_dir: /home/node/app
         volumes:
